@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Try-On Boutique</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background for a softer look */
+        }
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .glassmorphism {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        /* Styling for the 3D canvas placeholder */
+        #avatar-canvas-container {
+            position: relative;
+            width: 100%;
+            height: 0;
+            padding-bottom: 100%; /* Aspect ratio 1:1, adjust as needed */
+            background-color: #e2e8f0; /* Placeholder background */
+            border-radius: 16px;
+            overflow: hidden; /* Ensures canvas stays within bounds */
+        }
+        #avatar-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Placeholder for 3D canvas - Three.js will attach here */
+        }
+        .control-button {
+            background-color: #4a5568; /* Darker gray for buttons */
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+        .control-button:hover {
+            background-color: #2d3748; /* Even darker on hover */
+        }
+        .filter-section h3 {
+            border-bottom: 2px solid #cbd5e0; /* Light border for section titles */
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+        .clothing-item-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .clothing-item-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 to-slate-700 text-slate-100 min-h-screen flex flex-col">
+
+    <header class="bg-slate-800 shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <h1 class="text-2xl sm:text-3xl font-bold text-white">StyleSphere</h1>
+            <nav>
+                <a href="#" class="text-slate-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Home</a>
+                <a href="#" class="text-slate-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">New Arrivals</a>
+                <a href="#" class="text-slate-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Sale</a>
+                <a href="#" class="text-slate-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Account</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+        <div class="flex flex-col lg:flex-row gap-8">
+
+            <aside class="w-full lg:w-1/4 space-y-6">
+                <section class="glassmorphism p-6 shadow-xl">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Create Your Avatar</h2>
+                    <div class="mb-4">
+                        <label for="gender" class="block text-sm font-medium text-slate-200 mb-1">Gender</label>
+                        <select id="gender" name="gender" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-slate-100 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option>Female</option>
+                            <option>Male</option>
+                            <option>Non-binary</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label for="height" class="block text-sm font-medium text-slate-200 mb-1">Height: <span id="heightValue">170</span> cm</label>
+                        <input type="range" id="height" name="height" min="140" max="210" value="170" class="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                    </div>
+                    <div>
+                        <label for="physique" class="block text-sm font-medium text-slate-200 mb-1">Physique</label>
+                        <select id="physique" name="physique" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-slate-100 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option>Slim</option>
+                            <option>Average</option>
+                            <option>Muscular</option>
+                            <option>Plus-size</option>
+                        </select>
+                    </div>
+                    <button id="generateAvatar" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-150 ease-in-out">
+                        Update Avatar
+                    </button>
+                </section>
+
+                <section class="glassmorphism p-6 shadow-xl">
+                    <h2 class="text-xl font-semibold mb-4 text-white filter-section">Filters</h2>
+                    <div class="mb-4">
+                        <h3 class="text-lg font-medium text-slate-200">Type</h3>
+                        <div class="space-y-2 mt-2">
+                            <div><input type="checkbox" id="type-tops" class="form-checkbox rounded text-indigo-500 bg-slate-700 border-slate-600"><label for="type-tops" class="ml-2 text-slate-300">Tops</label></div>
+                            <div><input type="checkbox" id="type-bottoms" class="form-checkbox rounded text-indigo-500 bg-slate-700 border-slate-600"><label for="type-bottoms" class="ml-2 text-slate-300">Bottoms</label></div>
+                            <div><input type="checkbox" id="type-dresses" class="form-checkbox rounded text-indigo-500 bg-slate-700 border-slate-600"><label for="type-dresses" class="ml-2 text-slate-300">Dresses</label></div>
+                            <div><input type="checkbox" id="type-outerwear" class="form-checkbox rounded text-indigo-500 bg-slate-700 border-slate-600"><label for="type-outerwear" class="ml-2 text-slate-300">Outerwear</label></div>
+                            <div><input type="checkbox" id="type-shoes" class="form-checkbox rounded text-indigo-500 bg-slate-700 border-slate-600"><label for="type-shoes" class="ml-2 text-slate-300">Shoes</label></div>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <h3 class="text-lg font-medium text-slate-200">Brand</h3>
+                        <select id="brand-filter" class="w-full mt-2 p-3 bg-slate-700 border border-slate-600 rounded-lg text-slate-100 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option>All Brands</option>
+                            <option>Brand A</option>
+                            <option>Brand B</option>
+                            <option>Brand C</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <h3 class="text-lg font-medium text-slate-200">Size</h3>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <button class="size-btn px-3 py-1 bg-slate-600 hover:bg-indigo-500 text-slate-200 rounded-md text-sm">XS</button>
+                            <button class="size-btn px-3 py-1 bg-slate-600 hover:bg-indigo-500 text-slate-200 rounded-md text-sm">S</button>
+                            <button class="size-btn px-3 py-1 bg-slate-600 hover:bg-indigo-500 text-slate-200 rounded-md text-sm">M</button>
+                            <button class="size-btn px-3 py-1 bg-slate-600 hover:bg-indigo-500 text-slate-200 rounded-md text-sm">L</button>
+                            <button class="size-btn px-3 py-1 bg-slate-600 hover:bg-indigo-500 text-slate-200 rounded-md text-sm">XL</button>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-medium text-slate-200">Color</h3>
+                        <div class="flex flex-wrap gap-3 mt-2">
+                            <button class="w-6 h-6 rounded-full bg-red-500 border-2 border-transparent hover:border-white" title="Red"></button>
+                            <button class="w-6 h-6 rounded-full bg-blue-500 border-2 border-transparent hover:border-white" title="Blue"></button>
+                            <button class="w-6 h-6 rounded-full bg-green-500 border-2 border-transparent hover:border-white" title="Green"></button>
+                            <button class="w-6 h-6 rounded-full bg-yellow-400 border-2 border-transparent hover:border-white" title="Yellow"></button>
+                            <button class="w-6 h-6 rounded-full bg-black border-2 border-transparent hover:border-white" title="Black"></button>
+                            <button class="w-6 h-6 rounded-full bg-white border-2 border-slate-400 hover:border-slate-200" title="White"></button>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+
+            <section class="w-full lg:w-1/2 flex flex-col items-center">
+                <div id="avatar-canvas-container" class="shadow-2xl mb-4">
+                    <canvas id="avatar-canvas"></canvas>
+                    <div id="loading-avatar" class="absolute inset-0 flex items-center justify-center bg-slate-800 bg-opacity-75 text-white text-lg">
+                        Loading 3D Avatar...
+                    </div>
+                </div>
+                <div class="glassmorphism p-4 rounded-lg shadow-lg flex justify-center items-center gap-3 w-full max-w-md">
+                    <button id="rotate-left" class="control-button p-3 rounded-full" title="Rotate Left">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15 15l-6-6m0 0l6-6m-6 6h12a6 6 0 010 12h-3" /></svg>
+                    </button>
+                    <button id="toggle-view" class="control-button p-3 rounded-full" title="Toggle Front/Back View">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                    </button>
+                    <button id="rotate-right" class="control-button p-3 rounded-full" title="Rotate Right">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15l6-6m0 0l-6-6m6 6H3a6 6 0 000 12h3" /></svg>
+                    </button>
+                    <div class="flex items-center ml-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-1 text-slate-300"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM13.5 10.5h-6" /></svg>
+                        <input type="range" id="zoom" min="50" max="150" value="100" class="w-24 h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 ml-1 text-slate-300"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" /></svg>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="w-full lg:w-1/4 space-y-6">
+                <section class="glassmorphism p-6 shadow-xl">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Choose Clothing</h2>
+                    <div id="clothing-grid" class="grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto pr-2">
+                        <div class="clothing-item-card bg-slate-700 rounded-lg overflow-hidden shadow-md cursor-pointer p-3">
+                            <img src="https://placehold.co/300x400/7f9cf5/ffffff?text=Blue+Shirt" alt="Blue Shirt" class="w-full h-40 object-cover rounded-md mb-2">
+                            <h4 class="text-sm font-semibold text-slate-100">Casual Blue Shirt</h4>
+                            <p class="text-xs text-indigo-300">Brand A</p>
+                            <p class="text-sm font-bold text-white mt-1">$29.99</p>
+                        </div>
+                        <div class="clothing-item-card bg-slate-700 rounded-lg overflow-hidden shadow-md cursor-pointer p-3">
+                            <img src="https://placehold.co/300x400/f87171/ffffff?text=Red+Dress" alt="Red Dress" class="w-full h-40 object-cover rounded-md mb-2">
+                            <h4 class="text-sm font-semibold text-slate-100">Elegant Red Dress</h4>
+                            <p class="text-xs text-indigo-300">Brand B</p>
+                            <p class="text-sm font-bold text-white mt-1">$79.99</p>
+                        </div>
+                        <div class="clothing-item-card bg-slate-700 rounded-lg overflow-hidden shadow-md cursor-pointer p-3">
+                            <img src="https://placehold.co/300x400/34d399/ffffff?text=Green+Pants" alt="Green Pants" class="w-full h-40 object-cover rounded-md mb-2">
+                            <h4 class="text-sm font-semibold text-slate-100">Comfy Green Pants</h4>
+                            <p class="text-xs text-indigo-300">Brand A</p>
+                            <p class="text-sm font-bold text-white mt-1">$45.00</p>
+                        </div>
+                         <div class="clothing-item-card bg-slate-700 rounded-lg overflow-hidden shadow-md cursor-pointer p-3">
+                            <img src="https://placehold.co/300x400/fbbf24/ffffff?text=Yellow+Jacket" alt="Yellow Jacket" class="w-full h-40 object-cover rounded-md mb-2">
+                            <h4 class="text-sm font-semibold text-slate-100">Stylish Yellow Jacket</h4>
+                            <p class="text-xs text-indigo-300">Brand C</p>
+                            <p class="text-sm font-bold text-white mt-1">$99.50</p>
+                        </div>
+                        </div>
+                </section>
+            </aside>
+        </div>
+    </main>
+
+    <footer class="bg-slate-800 text-slate-400 text-center py-6 mt-auto">
+        <p>&copy; 2025 StyleSphere. All rights reserved.</p>
+        <p class="text-xs">Future: AI/AR enhanced realism coming soon!</p>
+    </footer>
+
+    <script>
+        // --- DOM Element References ---
+        const genderSelect = document.getElementById('gender');
+        const heightSlider = document.getElementById('height');
+        const heightValueDisplay = document.getElementById('heightValue');
+        const physiqueSelect = document.getElementById('physique');
+        const generateAvatarButton = document.getElementById('generateAvatar');
+
+        const avatarCanvasContainer = document.getElementById('avatar-canvas-container');
+        const avatarCanvas = document.getElementById('avatar-canvas');
+        const loadingAvatarMessage = document.getElementById('loading-avatar');
+
+        const rotateLeftButton = document.getElementById('rotate-left');
+        const toggleViewButton = document.getElementById('toggle-view');
+        const rotateRightButton = document.getElementById('rotate-right');
+        const zoomSlider = document.getElementById('zoom');
+
+        const clothingGrid = document.getElementById('clothing-grid');
+        // Filter elements
+        const typeCheckboxes = document.querySelectorAll('input[id^="type-"]');
+        const brandFilterSelect = document.getElementById('brand-filter');
+        const sizeButtons = document.querySelectorAll('.size-btn');
+        const colorButtons = document.querySelectorAll('.flex.flex-wrap.gap-3.mt-2 > button'); // More specific selector for color buttons
+
+        // --- State Variables ---
+        let currentAvatar = {
+            gender: 'Female',
+            height: 170,
+            physique: 'Average',
+            rotationY: 0,
+            isBackView: false,
+            zoomLevel: 100
+        };
+        let clothingItems = [ // Sample data
+            { id: 1, name: 'Casual Blue Shirt', brand: 'Brand A', type: 'Tops', color: 'Blue', price: '$29.99', size: ['S', 'M', 'L'], imageUrl: 'https://placehold.co/300x400/7f9cf5/ffffff?text=Blue+Shirt' },
+            { id: 2, name: 'Elegant Red Dress', brand: 'Brand B', type: 'Dresses', color: 'Red', price: '$79.99', size: ['XS', 'S', 'M'], imageUrl: 'https://placehold.co/300x400/f87171/ffffff?text=Red+Dress' },
+            { id: 3, name: 'Comfy Green Pants', brand: 'Brand A', type: 'Bottoms', color: 'Green', price: '$45.00', size: ['M', 'L', 'XL'], imageUrl: 'https://placehold.co/300x400/34d399/ffffff?text=Green+Pants' },
+            { id: 4, name: 'Stylish Yellow Jacket', brand: 'Brand C', type: 'Outerwear', color: 'Yellow', price: '$99.50', size: ['S', 'M'], imageUrl: 'https://placehold.co/300x400/fbbf24/ffffff?text=Yellow+Jacket' },
+            { id: 5, name: 'Black Skinny Jeans', brand: 'Brand B', type: 'Bottoms', color: 'Black', price: '$55.00', size: ['S', 'M', 'L'], imageUrl: 'https://placehold.co/300x400/1f2937/ffffff?text=Black+Jeans' },
+            { id: 6, name: 'White Sneakers', brand: 'Brand C', type: 'Shoes', color: 'White', price: '$65.00', size: ['M', 'L'], imageUrl: 'https://placehold.co/300x400/ffffff/1f2937?text=White+Shoes' }
+        ];
+        let activeFilters = {
+            type: [],
+            brand: 'All Brands',
+            size: null,
+            color: null
+        };
+
+        // --- Three.js Placeholder ---
+        // In a real application, you would initialize your Three.js scene here.
+        // For now, we'll just simulate loading.
+        function initThreeJS() {
+            console.log('Initializing Three.js scene...');
+            // Example:
+            // const scene = new THREE.Scene();
+            // const camera = new THREE.PerspectiveCamera(75, avatarCanvas.clientWidth / avatarCanvas.clientHeight, 0.1, 1000);
+            // const renderer = new THREE.WebGLRenderer({ canvas: avatarCanvas, alpha: true });
+            // renderer.setSize(avatarCanvas.clientWidth, avatarCanvas.clientHeight);
+            // ... setup lights, model loader, etc. ...
+
+            // Simulate loading time
+            setTimeout(() => {
+                loadingAvatarMessage.style.display = 'none';
+                avatarCanvas.style.backgroundColor = '#d1d5db'; // Show a simple background for the canvas
+                console.log('Avatar loaded (placeholder).');
+                // Placeholder: Draw a simple shape or message on canvas if not using Three.js for demo
+                const ctx = avatarCanvas.getContext('2d');
+                if (ctx) {
+                    avatarCanvas.width = avatarCanvasContainer.clientWidth;
+                    avatarCanvas.height = avatarCanvasContainer.clientHeight;
+                    ctx.fillStyle = '#a0aec0';
+                    ctx.fillRect(0, 0, avatarCanvas.width, avatarCanvas.height);
+                    ctx.fillStyle = 'white';
+                    ctx.font = '16px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('3D Avatar Area', avatarCanvas.width / 2, avatarCanvas.height / 2);
+                    ctx.fillText(`Gender: ${currentAvatar.gender}`, avatarCanvas.width / 2, avatarCanvas.height / 2 + 20);
+                    ctx.fillText(`Height: ${currentAvatar.height}cm`, avatarCanvas.width / 2, avatarCanvas.height / 2 + 40);
+                    ctx.fillText(`Physique: ${currentAvatar.physique}`, avatarCanvas.width / 2, avatarCanvas.height / 2 + 60);
+                }
+            }, 1500);
+        }
+        
+        function updateAvatarCanvas() {
+            // This function would typically trigger re-rendering in Three.js
+            // or update morph targets, textures, etc.
+            console.log('Updating avatar display:', currentAvatar);
+            const ctx = avatarCanvas.getContext('2d');
+            if (ctx) {
+                ctx.clearRect(0, 0, avatarCanvas.width, avatarCanvas.height);
+                ctx.fillStyle = '#a0aec0';
+                ctx.fillRect(0, 0, avatarCanvas.width, avatarCanvas.height);
+                
+                ctx.save(); // Save current state
+                ctx.translate(avatarCanvas.width / 2, avatarCanvas.height / 2); // Move to center
+                
+                // Apply rotation
+                ctx.rotate(currentAvatar.rotationY * Math.PI / 180);
+                if (currentAvatar.isBackView) {
+                    ctx.scale(-1, 1); // Flip horizontally for back view (simple simulation)
+                }
+
+                // Apply zoom (by scaling context)
+                const scale = currentAvatar.zoomLevel / 100;
+                ctx.scale(scale, scale);
+
+                // Draw simple avatar representation
+                ctx.fillStyle = '#718096'; // Avatar color
+                ctx.beginPath();
+                // Simple humanoid shape (adjust proportions based on physique/gender if desired)
+                let bodyWidth = 50;
+                if (currentAvatar.physique === 'Muscular') bodyWidth = 70;
+                if (currentAvatar.physique === 'Slim') bodyWidth = 40;
+                
+                // Head
+                ctx.arc(0, -70, 20, 0, Math.PI * 2); 
+                // Body
+                ctx.fillRect(-bodyWidth/2, -50, bodyWidth, 100); 
+                // Legs (simple rects)
+                ctx.fillRect(-bodyWidth/2 + 5, 50, bodyWidth/2 - 10, 60);
+                ctx.fillRect(5, 50, bodyWidth/2 - 10, 60);
+
+
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Inter';
+                ctx.textAlign = 'center';
+                
+                // Display info on the avatar (adjust position if flipped)
+                const textX = currentAvatar.isBackView ? 0 : 0; // Keep text centered
+                ctx.fillText(`${currentAvatar.gender}`, textX, -10);
+                ctx.fillText(`${currentAvatar.height}cm`, textX, 5);
+                ctx.fillText(`${currentAvatar.physique}`, textX, 20);
+                if(currentAvatar.isBackView) ctx.fillText(`(Back View)`, textX, 35);
+
+
+                ctx.fill(); // Fill the path for head
+                ctx.restore(); // Restore original state (transformations)
+            }
+             // Simulate applying clothes: In Three.js, this would involve changing meshes/textures.
+            console.log('Avatar display updated based on currentAvatar state.');
+        }
+
+
+        // --- Event Listeners ---
+        heightSlider.addEventListener('input', (e) => {
+            heightValueDisplay.textContent = e.target.value;
+            currentAvatar.height = parseInt(e.target.value);
+            // No real-time updateAvatarCanvas() here for slider drag for performance, only on button click
+        });
+
+        generateAvatarButton.addEventListener('click', () => {
+            currentAvatar.gender = genderSelect.value;
+            currentAvatar.height = parseInt(heightSlider.value); // Ensure height is taken from slider current value
+            currentAvatar.physique = physiqueSelect.value;
+            console.log('Avatar settings changed:', currentAvatar);
+            // In a real app, this would trigger regeneration/morphing of the 3D model
+            loadingAvatarMessage.style.display = 'flex';
+            avatarCanvas.style.backgroundColor = 'transparent';
+            setTimeout(() => { // Simulate regeneration
+                loadingAvatarMessage.style.display = 'none';
+                avatarCanvas.style.backgroundColor = '#d1d5db';
+                updateAvatarCanvas(); 
+            }, 500);
+        });
+
+        rotateLeftButton.addEventListener('click', () => {
+            currentAvatar.rotationY -= 15; // Rotate 15 degrees
+            updateAvatarCanvas();
+        });
+
+        rotateRightButton.addEventListener('click', () => {
+            currentAvatar.rotationY += 15; // Rotate 15 degrees
+            updateAvatarCanvas();
+        });
+
+        toggleViewButton.addEventListener('click', () => {
+            currentAvatar.isBackView = !currentAvatar.isBackView;
+            // If you want a full 180 turn instead of just flipping:
+            // currentAvatar.rotationY += 180;
+            updateAvatarCanvas();
+        });
+
+        zoomSlider.addEventListener('input', (e) => {
+            currentAvatar.zoomLevel = parseInt(e.target.value);
+            updateAvatarCanvas();
+        });
+        
+        // --- Clothing Item Population & Filtering ---
+        function renderClothingItems(itemsToRender) {
+            clothingGrid.innerHTML = ''; // Clear existing items
+            if (itemsToRender.length === 0) {
+                clothingGrid.innerHTML = `<p class="col-span-2 text-center text-slate-400">No items match your filters.</p>`;
+                return;
+            }
+            itemsToRender.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'clothing-item-card bg-slate-700 rounded-lg overflow-hidden shadow-md cursor-pointer p-3';
+                card.innerHTML = `
+                    <img src="${item.imageUrl}" alt="${item.name}" class="w-full h-40 object-cover rounded-md mb-2" onerror="this.onerror=null;this.src='https://placehold.co/300x400/374151/9ca3af?text=Image+Not+Found';">
+                    <h4 class="text-sm font-semibold text-slate-100 truncate" title="${item.name}">${item.name}</h4>
+                    <p class="text-xs text-indigo-300">${item.brand}</p>
+                    <p class="text-sm font-bold text-white mt-1">${item.price}</p>
+                `;
+                card.addEventListener('click', () => {
+                    console.log('Selected clothing item:', item.name);
+                    // Placeholder: In a real app, send this info to Three.js to apply the clothing
+                    alert(`Applying ${item.name} to the avatar (simulation).`);
+                    // You might want to update a "currently worn" section or directly tell the avatar model to change.
+                });
+                clothingGrid.appendChild(card);
+            });
+        }
+
+        function applyFilters() {
+            let filteredItems = [...clothingItems];
+
+            // Type filter
+            if (activeFilters.type.length > 0) {
+                filteredItems = filteredItems.filter(item => activeFilters.type.includes(item.type));
+            }
+            // Brand filter
+            if (activeFilters.brand !== 'All Brands') {
+                filteredItems = filteredItems.filter(item => item.brand === activeFilters.brand);
+            }
+            // Size filter
+            if (activeFilters.size) {
+                filteredItems = filteredItems.filter(item => item.size.includes(activeFilters.size));
+            }
+            // Color filter
+            if (activeFilters.color) {
+                filteredItems = filteredItems.filter(item => item.color === activeFilters.color);
+            }
+            renderClothingItems(filteredItems);
+        }
+
+        // Filter event listeners
+        typeCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const type = e.target.labels[0].textContent; // e.g., "Tops"
+                if (e.target.checked) {
+                    if (!activeFilters.type.includes(type)) activeFilters.type.push(type);
+                } else {
+                    activeFilters.type = activeFilters.type.filter(t => t !== type);
+                }
+                applyFilters();
+            });
+        });
+
+        brandFilterSelect.addEventListener('change', (e) => {
+            activeFilters.brand = e.target.value;
+            applyFilters();
+        });
+
+        sizeButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                // Toggle behavior for size buttons
+                if (activeFilters.size === e.target.textContent) {
+                    activeFilters.size = null; // Deselect if clicked again
+                    e.target.classList.remove('bg-indigo-500');
+                    e.target.classList.add('bg-slate-600');
+                } else {
+                    sizeButtons.forEach(btn => { // Deselect other sizes
+                         btn.classList.remove('bg-indigo-500');
+                         btn.classList.add('bg-slate-600');
+                    });
+                    activeFilters.size = e.target.textContent;
+                    e.target.classList.add('bg-indigo-500');
+                    e.target.classList.remove('bg-slate-600');
+                }
+                applyFilters();
+            });
+        });
+
+        colorButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const selectedColor = e.target.title;
+                 // Toggle behavior for color buttons
+                if (activeFilters.color === selectedColor) {
+                    activeFilters.color = null; // Deselect
+                    e.target.classList.remove('ring-2', 'ring-offset-2', 'ring-indigo-400', 'ring-offset-slate-800');
+                } else {
+                    colorButtons.forEach(btn => btn.classList.remove('ring-2', 'ring-offset-2', 'ring-indigo-400', 'ring-offset-slate-800'));
+                    activeFilters.color = selectedColor;
+                    e.target.classList.add('ring-2', 'ring-offset-2', 'ring-indigo-400', 'ring-offset-slate-800');
+                }
+                applyFilters();
+            });
+        });
+        
+        // --- Initial Setup ---
+        window.addEventListener('load', () => {
+            initThreeJS(); // Initialize the 3D canvas area
+            renderClothingItems(clothingItems); // Populate initial clothing items
+            updateAvatarCanvas(); // Draw initial placeholder avatar
+
+            // Set initial height display
+            heightValueDisplay.textContent = heightSlider.value;
+
+            // Responsive canvas resizing
+            const resizeCanvas = () => {
+                if (avatarCanvas && avatarCanvasContainer) {
+                    const containerWidth = avatarCanvasContainer.clientWidth;
+                    // Maintain aspect ratio, e.g., 1:1 for square, or adjust as needed
+                    const containerHeight = containerWidth; 
+                    avatarCanvasContainer.style.height = `${containerHeight}px`;
+                    
+                    avatarCanvas.width = containerWidth;
+                    avatarCanvas.height = containerHeight;
+
+                    // If using Three.js, update camera aspect and renderer size here
+                    // camera.aspect = containerWidth / containerHeight;
+                    // camera.updateProjectionMatrix();
+                    // renderer.setSize(containerWidth, containerHeight);
+                    
+                    updateAvatarCanvas(); // Redraw canvas content
+                }
+            };
+
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas(); // Initial call
+        });
+
+    </script>
+</body>
+</html>
